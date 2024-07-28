@@ -1,8 +1,9 @@
 require("dotenv").config();
 const puppeteer = require("puppeteer");
-const path = require("path"); // Add path module
-
 const loginLink = "https://internshala.com/login/student";
+const path = require("path");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 
 let browserOpen = puppeteer.launch({
   headless: false,
@@ -112,19 +113,22 @@ async function internshipApply(selector) {
       const result = await model.generateContent(
         questionText +
           ". Write in less than 100 words." +
-          " This is my resume: " +
+          "This is my resume : " +
           process.env.RESUME_DATA
       );
       const response = await result.response;
-      const text = await response.text();
+      const text = response.text();
       console.log(`Response Text: ${text}`);
-      await page.type(`textarea[name="${textAreaName}"]`, text, { delay: 50 });
+      await page.type(`textarea[name="${textAreaName}"]`, text, {
+        delay: 50,
+      });
     }
 
-    await waitAndClick('button[id="submit_application"]', page);
-
-    console.log("Application submitted successfully!");
+    await waitAndClick('input[id="submit"]', page, { delay: 1000 });
+    await page.goto(
+      "https://internshala.com/internships/matching-preferences/"
+    );
   } catch (error) {
-    console.error("Error during application process: ", error);
+    console.error("Error in internshipApply:", error);
   }
 }
