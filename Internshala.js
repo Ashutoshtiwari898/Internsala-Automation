@@ -26,7 +26,9 @@ browserOpen
     return page.type("input[id='email']", process.env.EMAIL, { delay: 50 }); // Type email
   })
   .then(function () {
-    return page.type("input[id='password']", process.env.PASSWORD, { delay: 50 }); // Type password
+    return page.type("input[id='password']", process.env.PASSWORD, {
+      delay: 50,
+    }); // Type password
   })
   .then(function () {
     return page.click('button[id="login_submit"]', { delay: 40 }); // Click login button
@@ -35,10 +37,14 @@ browserOpen
     return page.waitForNavigation(); // Wait for navigation after login
   })
   .then(function () {
-    return waitAndClick('a[id="internships_new_superscript"]', page, { delay: 1000 }); // Click on internships link
+    return waitAndClick('a[id="internships_new_superscript"]', page, {
+      delay: 1000,
+    }); // Click on internships link
   })
   .then(function () {
-    return waitAndClick('input[id="matching_preference"]', page, { delay: 1000 }); // Click on matching preference
+    return waitAndClick('input[id="matching_preference"]', page, {
+      delay: 1000,
+    }); // Click on matching preference
   })
   .then(function () {
     let allInternshipsPromise = page.$$(".easy_apply", { delay: 50 });
@@ -89,15 +95,30 @@ async function internshipApply(selector) {
 
       return questions.map((question, index) => ({
         questionText: question.textContent.trim(),
-        textAreaName: textAreas[index] ? textAreas[index].getAttribute("name") : null,
+        textAreaName: textAreas[index]
+          ? textAreas[index].getAttribute("name")
+          : null,
       }));
     });
 
-    for (let i = 0; i < questionsAndTextAreas.length; i++) {
-      const question = questionsAndTextAreas[i];
-      if (question.textAreaName) {
-        await page.type(`textarea[name="${question.textAreaName}"]`, "Sample answer for the question.", { delay: 50 });
+    for (const { questionText, textAreaName } of questionsAndTextAreas) {
+      if (!textAreaName) {
+        console.error(`No text area found for question: ${questionText}`);
+        continue;
       }
+
+      console.log(`Assessment Question: ${questionText}`);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const result = await model.generateContent(
+        questionText +
+          ". Write in less than 100 words." +
+          " This is my resume: " +
+          process.env.RESUME_DATA
+      );
+      const response = await result.response;
+      const text = await response.text();
+      console.log(`Response Text: ${text}`);
+      await page.type(`textarea[name="${textAreaName}"]`, text, { delay: 50 });
     }
 
     await waitAndClick('button[id="submit_application"]', page);
@@ -107,5 +128,3 @@ async function internshipApply(selector) {
     console.error("Error during application process: ", error);
   }
 }
-
-  
