@@ -1,5 +1,7 @@
 require("dotenv").config();
 const puppeteer = require("puppeteer");
+const path = require("path"); // Add path module
+
 const loginLink = "https://internshala.com/login/student";
 
 let browserOpen = puppeteer.launch({
@@ -24,9 +26,7 @@ browserOpen
     return page.type("input[id='email']", process.env.EMAIL, { delay: 50 }); // Type email
   })
   .then(function () {
-    return page.type("input[id='password']", process.env.PASSWORD, {
-      delay: 50,
-    }); // Type password
+    return page.type("input[id='password']", process.env.PASSWORD, { delay: 50 }); // Type password
   })
   .then(function () {
     return page.click('button[id="login_submit"]', { delay: 40 }); // Click login button
@@ -35,19 +35,13 @@ browserOpen
     return page.waitForNavigation(); // Wait for navigation after login
   })
   .then(function () {
-    return waitAndClick('a[id="internships_new_superscript"]', page, {
-      delay: 1000,
-    }); // Click on internships link
+    return waitAndClick('a[id="internships_new_superscript"]', page, { delay: 1000 }); // Click on internships link
   })
   .then(function () {
-    return waitAndClick('input[id="matching_preference"]', page, {
-      delay: 1000,
-    }); // Click on matching preference
+    return waitAndClick('input[id="matching_preference"]', page, { delay: 1000 }); // Click on matching preference
   })
   .then(function () {
-    let allInternshipsPromise = page.$$(".easy_apply", {
-      delay: 50,
-    });
+    let allInternshipsPromise = page.$$(".easy_apply", { delay: 50 });
     return allInternshipsPromise;
   })
   .then(async function (internshipsArray) {
@@ -73,3 +67,45 @@ function waitAndClick(selector, cPage) {
       });
   });
 }
+
+async function internshipApply(selector) {
+  try {
+    await page.evaluate((sel) => sel.click(), selector);
+    await waitAndClick('button[id="continue_button"]', page);
+    await waitAndClick('a[class="copyCoverLetterTitle"]', page);
+
+    await page.waitForSelector('input[type="file"]');
+    const inputUploadHandle = await page.$('input[type="file"]');
+    const filePath = path.relative(process.cwd(), "./Resume.pdf");
+    await inputUploadHandle.uploadFile(filePath);
+
+    const questionsAndTextAreas = await page.evaluate(() => {
+      const questions = Array.from(
+        document.querySelectorAll(".assessment_question label")
+      );
+      const textAreas = Array.from(
+        document.querySelectorAll('textarea[placeholder="Enter text ..."]')
+      );
+
+      return questions.map((question, index) => ({
+        questionText: question.textContent.trim(),
+        textAreaName: textAreas[index] ? textAreas[index].getAttribute("name") : null,
+      }));
+    });
+
+    for (let i = 0; i < questionsAndTextAreas.length; i++) {
+      const question = questionsAndTextAreas[i];
+      if (question.textAreaName) {
+        await page.type(`textarea[name="${question.textAreaName}"]`, "Sample answer for the question.", { delay: 50 });
+      }
+    }
+
+    await waitAndClick('button[id="submit_application"]', page);
+
+    console.log("Application submitted successfully!");
+  } catch (error) {
+    console.error("Error during application process: ", error);
+  }
+}
+
+  
